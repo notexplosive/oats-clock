@@ -11,6 +11,7 @@ let oat = new CirclePrimitive(true, 25, { color: 0x00ffaa })
 let dayTrack: Track;
 let minuteTrack: Track;
 let digitalDisplay: Text = new Text("00:00:00", { fontSize: 100 });
+let url: Text = new Text("notexplosive.net", { fontSize: 50 });
 
 export function main() {
     let clock = new Container()
@@ -48,6 +49,7 @@ export function main() {
     }
 
     clock.addChild(digitalDisplay)
+    clock.addChild(url)
 }
 
 // 20 hours in a day
