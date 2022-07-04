@@ -1,0 +1,3 @@
+[submodule "src/limbo"]
+	path = src/limbo
+	url = git@github.com:notexplosive/limbo.git
