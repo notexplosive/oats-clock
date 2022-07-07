@@ -1,4 +1,4 @@
-import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text, IPoint } from 'pixi.js';
+import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text, IPoint, IFillStyleOptions } from 'pixi.js';
 import { game } from './limbo';
 import { Tween, TweenChain, Tweenable, TweenableNumber, EaseFunction, EaseFunctions, MultiplexTween, CallbackTween, ITween } from './limbo/data/tween';
 import { CirclePrimitive } from './limbo/render/primitive';
@@ -8,16 +8,18 @@ import { pointMagnitude, subtractPoints, addPoints, multiplyPoint } from './limb
 const maxSecondsPerDay = 86400
 let topHalf: ClockContainer;
 let bottomHalf: ClockContainer;
+const digitalDisplay = new Text("00:00:00", { fontSize: 100, fill: 0x333333 });
+const displayHolder = new Graphics()
 
 export function main() {
     let backgroundFill = new Graphics()
-    backgroundFill.beginFill(0xcccccc);
+    backgroundFill.beginFill(0x999999);
     backgroundFill.drawRect(0, 0, 1600, 900)
 
     game.rootContainer.addChild(backgroundFill)
 
-    topHalf = new ClockContainer(0xff0000)
-    bottomHalf = new ClockContainer(0x0000ff)
+    topHalf = new ClockContainer(0x333333, 0xeeeeee)
+    bottomHalf = new ClockContainer(0xeeeeee, 0x333333)
 
     let lightMask = new Graphics()
     lightMask.beginFill(0xffffff);
@@ -28,6 +30,10 @@ export function main() {
     darkMask.beginFill(0xff0000);
     darkMask.drawRect(0, 900 / 2, 1600, 900 / 2)
     bottomHalf.mask = darkMask
+
+    displayHolder.addChild(digitalDisplay)
+    displayHolder.position = new Point(1600 / 2, 900 / 2)
+    game.rootContainer.addChild(displayHolder)
 
     // clock.mask = lightMask
 }
@@ -44,23 +50,27 @@ export function update(dt: number) {
         const secondsInAnHour = 216 * 20
         clock.oat.position = clock.minuteTrack.points.getValueAtPercent(currentSeconds % secondsInAnHour / secondsInAnHour)
         clock.secondOat.position = clock.minuteTrack.points.getValueAtPercent(currentSeconds % 216 / 216)
-
-        clock.digitalDisplay.text =
-            `${Math.floor(currentSeconds / 20 / 216)
-            }:${Math.floor(currentSeconds / 216 % 20).toLocaleString('en-US', {
-                minimumIntegerDigits: 2,
-                useGrouping: false
-            })
-            }:${(currentSeconds % 216).toLocaleString('en-US', {
-                minimumIntegerDigits: 3,
-                useGrouping: false
-            })
-            }`
-        clock.digitalDisplay.position = multiplyPoint({ x: clock.digitalDisplay.width, y: clock.digitalDisplay.height }, -0.5)
     }
+
+    digitalDisplay.text =
+        `${Math.floor(currentSeconds / 20 / 216)
+        }:${Math.floor(currentSeconds / 216 % 20).toLocaleString('en-US', {
+            minimumIntegerDigits: 2,
+            useGrouping: false
+        })
+        }:${(currentSeconds % 216).toLocaleString('en-US', {
+            minimumIntegerDigits: 3,
+            useGrouping: false
+        })
+        }`
+    digitalDisplay.position = multiplyPoint({ x: digitalDisplay.width, y: digitalDisplay.height }, -0.5)
+
+    displayHolder.clear()
+    displayHolder.beginFill(0xffffff, 1)
+    displayHolder.drawRect(-digitalDisplay.width / 2, -digitalDisplay.height / 2, digitalDisplay.width, digitalDisplay.height)
 }
 
-function createOval(addedWidth: number, addedHeight: number, radius: number, scale: number, lineWidth: number, color: number) {
+function createOval(addedWidth: number, addedHeight: number, radius: number, scale: number, lineWidth: number, foregroundColor: number, backgroundColor: number) {
     let outlineGraphics = new Graphics()
     outlineGraphics.clear();
 
@@ -71,7 +81,7 @@ function createOval(addedWidth: number, addedHeight: number, radius: number, sca
     let totalWidth = addedWidth + radius * 2
     let totalHeight = addedHeight + radius * 2
     outlineGraphics.position = new Point(-totalWidth / 2, -totalHeight / 2)
-    let randomAccessTween = drawRoundedCircle(outlineGraphics, radius, addedWidth, addedHeight, { color: color, width: lineWidth, alpha: 1 })
+    let randomAccessTween = drawRoundedCircle(outlineGraphics, radius, addedWidth, addedHeight, { color: foregroundColor, width: lineWidth, alpha: 1 }, { alpha: 1, color: backgroundColor })
 
     return new Track(outlineGraphics, randomAccessTween, { x: totalWidth, y: totalHeight })
 }
@@ -87,32 +97,37 @@ export class Track {
     }
 }
 
-function drawRoundedCircle(graphics: Graphics, radius: number, extraWidth: number, extraHeight: number, lineStyle: ILineStyleOptions) {
+function drawRoundedCircle(graphics: Graphics, radius: number, extraWidth: number, extraHeight: number, lineStyle: ILineStyleOptions, fillStyle: IFillStyleOptions) {
+    let painter = new OvalTweenDrawer(graphics, radius, extraWidth, extraHeight)
 
-    graphics.lineStyle(lineStyle);
+    function travelAroundShape() {
+        // Jump around the tween and trace the line segments as we go
+        painter.tween.jumpTo(painter.xTravelDuration / 2)
+        painter.drawLineToCurrentTweenable()
+        painter.drawCorner(painter.xTravelDuration / 2)
 
-    let painter = new TweenDrawer(graphics, radius, extraWidth, extraHeight)
+        painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration + painter.yTravelDuration)
+        painter.drawLineToCurrentTweenable()
+        painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration + painter.yTravelDuration)
 
-    // Jump around the tween and trace the line segments as we go
+        painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 2 + painter.yTravelDuration + painter.xTravelDuration)
+        painter.drawLineToCurrentTweenable()
+        painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration * 2 + painter.yTravelDuration + painter.xTravelDuration)
 
-    painter.tween.jumpTo(painter.xTravelDuration / 2)
-    painter.drawLineToCurrentTweenable()
-    painter.drawCorner(painter.xTravelDuration / 2)
+        painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 3 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration)
+        painter.drawLineToCurrentTweenable()
+        painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration * 3 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration)
 
-    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration + painter.yTravelDuration)
-    painter.drawLineToCurrentTweenable()
-    painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration + painter.yTravelDuration)
+        painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 4 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration + painter.xTravelDuration / 2)
+        painter.drawLineToCurrentTweenable()
+    }
 
-    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 2 + painter.yTravelDuration + painter.xTravelDuration)
-    painter.drawLineToCurrentTweenable()
-    painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration * 2 + painter.yTravelDuration + painter.xTravelDuration)
+    painter.graphics.beginFill(fillStyle.color, fillStyle.alpha);
+    travelAroundShape()
 
-    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 3 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration)
-    painter.drawLineToCurrentTweenable()
-    painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration * 3 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration)
+    painter.graphics.lineStyle(lineStyle);
+    travelAroundShape()
 
-    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 4 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration + painter.xTravelDuration / 2)
-    painter.drawLineToCurrentTweenable()
 
     return new RandomAccessTween(painter.tween, painter.tweenableX, painter.tweenableY)
 }
@@ -142,33 +157,31 @@ export class ClockContainer extends Container {
     readonly secondOat: CirclePrimitive;
     readonly dayTrack: Track;
     readonly minuteTrack: Track;
-    readonly digitalDisplay: Text;
     readonly url: Text;
 
-    constructor(foregroundColor: number) {
+    constructor(foregroundColor: number, backgroundColor: number) {
         super()
         this.sun = new CirclePrimitive(true, 25, { color: foregroundColor })
         this.oat = new CirclePrimitive(true, 25, { color: foregroundColor })
         this.secondOat = new CirclePrimitive(true, 15, { color: foregroundColor })
-        this.digitalDisplay = new Text("00:00:00", { fontSize: 100, fill: foregroundColor });
         this.url = new Text("notexplosive.net", { fontSize: 40, fill: foregroundColor });
         this.url.position = { x: -this.url.width / 2, y: -this.url.height / 2 }
 
         const ovalWidth = 600
         const ovalHeight = 450
-        let border = createOval(ovalWidth, 0, ovalHeight, 0.8, 20, foregroundColor)
+        let border = createOval(ovalWidth, 0, ovalHeight, 0.8, 20, foregroundColor, backgroundColor)
         this.addChild(border.graphics)
 
         const minuteTrackInset = 100
-        this.minuteTrack = createOval(ovalWidth - minuteTrackInset, 0, ovalHeight - minuteTrackInset, 0.8, 5, foregroundColor)
+        this.minuteTrack = createOval(ovalWidth - minuteTrackInset, 0, ovalHeight - minuteTrackInset, 0.8, 5, foregroundColor, backgroundColor)
         this.addChild(this.minuteTrack.graphics)
 
         const dayTrackInset = 200
-        this.dayTrack = createOval(ovalWidth - dayTrackInset, 0, ovalHeight - dayTrackInset, 0.8, 5, foregroundColor)
+        this.dayTrack = createOval(ovalWidth - dayTrackInset, 0, ovalHeight - dayTrackInset, 0.8, 5, foregroundColor, backgroundColor)
         this.addChild(this.dayTrack.graphics)
 
         const numbersInset = 50
-        let numbersTrack = createOval(ovalWidth - numbersInset, 0, ovalHeight - numbersInset, 0.8, 5, foregroundColor)
+        let numbersTrack = createOval(ovalWidth - numbersInset, 0, ovalHeight - numbersInset, 0.8, 5, foregroundColor, backgroundColor)
 
         game.rootContainer.addChild(this)
 
@@ -192,8 +205,6 @@ export class ClockContainer extends Container {
             }
         }
 
-        this.addChild(this.digitalDisplay)
-
         let urlParent = new Container()
         urlParent.addChild(this.url)
         this.addChild(urlParent)
@@ -207,7 +218,7 @@ export class ClockContainer extends Container {
 }
 
 // Abusing my tweening library to draw curves
-export class TweenDrawer {
+export class OvalTweenDrawer {
     readonly graphics: Graphics;
     readonly tweenableX: TweenableNumber;
     readonly tweenableY: TweenableNumber;
