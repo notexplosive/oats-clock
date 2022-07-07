@@ -57,7 +57,7 @@ export function update(dt: number) {
 
     digitalDisplay.text =
         `${Math.floor(currentSeconds / 20 / 216 + 1) // add one hour because everything is off-by-one
-        }:${Math.floor(currentSeconds / 216 % 20).toLocaleString('en-US', {
+        }:${Math.floor(currentSeconds / 216 % 20 + 1).toLocaleString('en-US', {
             minimumIntegerDigits: 2,
             useGrouping: false
         })
