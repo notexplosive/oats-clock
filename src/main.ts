@@ -6,69 +6,30 @@ import { pointMagnitude, subtractPoints, addPoints, multiplyPoint } from './limb
 
 
 const maxSecondsPerDay = 86400
-let sun = new CirclePrimitive(true, 25, { color: 0xffff00 })
-let oat = new CirclePrimitive(true, 25, { color: 0x00ffaa })
-let secondOat = new CirclePrimitive(true, 15, { color: 0xaaffaa })
-let dayTrack: Track;
-let minuteTrack: Track;
-let digitalDisplay: Text = new Text("00:00:00", { fontSize: 100 });
-let url: Text = new Text("notexplosive.net", { fontSize: 40 });
-url.position = { x: -url.width / 2, y: -url.height / 2 }
+let topHalf: ClockContainer;
+let bottomHalf: ClockContainer;
 
 export function main() {
-    let clock = new Container()
-    clock.position = new Point(1600 / 2, 900 / 2)
+    let backgroundFill = new Graphics()
+    backgroundFill.beginFill(0xcccccc);
+    backgroundFill.drawRect(0, 0, 1600, 900)
 
-    const ovalWidth = 600
-    const ovalHeight = 450
-    let border = createOval(ovalWidth, 0, ovalHeight, 0.8, 20)
-    clock.addChild(border.graphics)
+    game.rootContainer.addChild(backgroundFill)
 
-    const minuteTrackInset = 100
-    minuteTrack = createOval(ovalWidth - minuteTrackInset, 0, ovalHeight - minuteTrackInset, 0.8, 5)
-    clock.addChild(minuteTrack.graphics)
+    topHalf = new ClockContainer(0xff0000)
+    bottomHalf = new ClockContainer(0x0000ff)
 
-    const dayTrackInset = 200
-    dayTrack = createOval(ovalWidth - dayTrackInset, 0, ovalHeight - dayTrackInset, 0.8, 5)
-    clock.addChild(dayTrack.graphics)
+    let lightMask = new Graphics()
+    lightMask.beginFill(0xffffff);
+    lightMask.drawRect(0, 0, 1600, 900 / 2)
+    topHalf.mask = lightMask
 
-    const numbersInset = 50
-    let numbersTrack = createOval(ovalWidth - numbersInset, 0, ovalHeight - numbersInset, 0.8, 5)
+    let darkMask = new Graphics()
+    darkMask.beginFill(0xff0000);
+    darkMask.drawRect(0, 900 / 2, 1600, 900 / 2)
+    bottomHalf.mask = darkMask
 
-    let bg = new Graphics()
-    bg.beginFill(0xcccccc);
-    bg.drawRect(0, 0, 1600, 900)
-
-    game.rootContainer.addChild(bg)
-    game.rootContainer.addChild(clock)
-
-    dayTrack.graphics.addChild(sun)
-    minuteTrack.graphics.addChild(oat)
-    minuteTrack.graphics.addChild(secondOat)
-
-
-    // numbered labels
-    {
-        let textRoot = new Container()
-        clock.addChild(textRoot)
-        textRoot.position = multiplyPoint(numbersTrack.size, -0.5)
-
-        for (let i = 1; i <= 20; i++) {
-            let textContainer = new Container()
-            textRoot.addChild(textContainer)
-            let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: 0x222222 }))
-            text.position = new Point(-text.width / 2, -text.height / 2)
-            textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
-        }
-    }
-
-    clock.addChild(digitalDisplay)
-
-    let urlParent = new Container()
-    urlParent.addChild(url)
-    clock.addChild(urlParent)
-
-    urlParent.position.y = 110
+    // clock.mask = lightMask
 }
 
 // 20 hours in a day
@@ -78,26 +39,28 @@ export function main() {
 export function update(dt: number) {
     let time = new Date()
     let currentSeconds = time.getSeconds() + time.getMinutes() * 60 + time.getHours() * 60 * 60
-    sun.position = dayTrack.points.getValueAtPercent(currentSeconds / maxSecondsPerDay)
-    const secondsInAnHour = 216 * 20
-    oat.position = minuteTrack.points.getValueAtPercent(currentSeconds % secondsInAnHour / secondsInAnHour)
-    secondOat.position = minuteTrack.points.getValueAtPercent(currentSeconds % 216 / 216)
+    for (let clock of [topHalf, bottomHalf]) {
+        clock.sun.position = clock.dayTrack.points.getValueAtPercent(currentSeconds / maxSecondsPerDay)
+        const secondsInAnHour = 216 * 20
+        clock.oat.position = clock.minuteTrack.points.getValueAtPercent(currentSeconds % secondsInAnHour / secondsInAnHour)
+        clock.secondOat.position = clock.minuteTrack.points.getValueAtPercent(currentSeconds % 216 / 216)
 
-    digitalDisplay.text =
-        `${Math.floor(currentSeconds / 20 / 216)
-        }:${Math.floor(currentSeconds / 216 % 20).toLocaleString('en-US', {
-            minimumIntegerDigits: 2,
-            useGrouping: false
-        })
-        }:${(currentSeconds % 216).toLocaleString('en-US', {
-            minimumIntegerDigits: 3,
-            useGrouping: false
-        })
-        }`
-    digitalDisplay.position = multiplyPoint({ x: digitalDisplay.width, y: digitalDisplay.height }, -0.5)
+        clock.digitalDisplay.text =
+            `${Math.floor(currentSeconds / 20 / 216)
+            }:${Math.floor(currentSeconds / 216 % 20).toLocaleString('en-US', {
+                minimumIntegerDigits: 2,
+                useGrouping: false
+            })
+            }:${(currentSeconds % 216).toLocaleString('en-US', {
+                minimumIntegerDigits: 3,
+                useGrouping: false
+            })
+            }`
+        clock.digitalDisplay.position = multiplyPoint({ x: clock.digitalDisplay.width, y: clock.digitalDisplay.height }, -0.5)
+    }
 }
 
-function createOval(addedWidth: number, addedHeight: number, radius: number, scale: number, lineWidth: number) {
+function createOval(addedWidth: number, addedHeight: number, radius: number, scale: number, lineWidth: number, color: number) {
     let outlineGraphics = new Graphics()
     outlineGraphics.clear();
 
@@ -108,7 +71,7 @@ function createOval(addedWidth: number, addedHeight: number, radius: number, sca
     let totalWidth = addedWidth + radius * 2
     let totalHeight = addedHeight + radius * 2
     outlineGraphics.position = new Point(-totalWidth / 2, -totalHeight / 2)
-    let randomAccessTween = drawRoundedCircle(outlineGraphics, radius, addedWidth, addedHeight, { color: 0x333333, width: lineWidth, alpha: 1 })
+    let randomAccessTween = drawRoundedCircle(outlineGraphics, radius, addedWidth, addedHeight, { color: color, width: lineWidth, alpha: 1 })
 
     return new Track(outlineGraphics, randomAccessTween, { x: totalWidth, y: totalHeight })
 }
@@ -243,4 +206,74 @@ export class RandomAccessTween {
 
         return { x: this.x.get(), y: this.y.get() }
     }
+}
+
+export class ClockContainer extends Container {
+    readonly sun: CirclePrimitive;
+    readonly oat: CirclePrimitive;
+    readonly secondOat: CirclePrimitive;
+    readonly dayTrack: Track;
+    readonly minuteTrack: Track;
+    readonly digitalDisplay: Text;
+    readonly url: Text;
+
+    constructor(foregroundColor: number) {
+        super()
+        this.sun = new CirclePrimitive(true, 25, { color: foregroundColor })
+        this.oat = new CirclePrimitive(true, 25, { color: foregroundColor })
+        this.secondOat = new CirclePrimitive(true, 15, { color: foregroundColor })
+        this.digitalDisplay = new Text("00:00:00", { fontSize: 100, fill: foregroundColor });
+        this.url = new Text("notexplosive.net", { fontSize: 40 });
+        this.url.position = { x: -this.url.width / 2, y: -this.url.height / 2 }
+
+        const ovalWidth = 600
+        const ovalHeight = 450
+        let border = createOval(ovalWidth, 0, ovalHeight, 0.8, 20, foregroundColor)
+        this.addChild(border.graphics)
+
+        const minuteTrackInset = 100
+        this.minuteTrack = createOval(ovalWidth - minuteTrackInset, 0, ovalHeight - minuteTrackInset, 0.8, 5, foregroundColor)
+        this.addChild(this.minuteTrack.graphics)
+
+        const dayTrackInset = 200
+        this.dayTrack = createOval(ovalWidth - dayTrackInset, 0, ovalHeight - dayTrackInset, 0.8, 5, foregroundColor)
+        this.addChild(this.dayTrack.graphics)
+
+        const numbersInset = 50
+        let numbersTrack = createOval(ovalWidth - numbersInset, 0, ovalHeight - numbersInset, 0.8, 5, foregroundColor)
+
+        game.rootContainer.addChild(this)
+
+        this.dayTrack.graphics.addChild(this.sun)
+        this.minuteTrack.graphics.addChild(this.oat)
+        this.minuteTrack.graphics.addChild(this.secondOat)
+
+
+        // numbered labels
+        {
+            let textRoot = new Container()
+            this.addChild(textRoot)
+            textRoot.position = multiplyPoint(numbersTrack.size, -0.5)
+
+            for (let i = 1; i <= 20; i++) {
+                let textContainer = new Container()
+                textRoot.addChild(textContainer)
+                let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: 0x222222 }))
+                text.position = new Point(-text.width / 2, -text.height / 2)
+                textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
+            }
+        }
+
+        this.addChild(this.digitalDisplay)
+
+        let urlParent = new Container()
+        urlParent.addChild(this.url)
+        this.addChild(urlParent)
+
+        urlParent.position.y = 110
+
+        this.position = new Point(1600 / 2, 900 / 2)
+
+    }
+
 }
