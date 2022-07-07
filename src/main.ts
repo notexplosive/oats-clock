@@ -271,39 +271,39 @@ export class OvalTweenDrawer {
                 tweenableY.set(startingY)
             }))
 
-            // bottom edge, going left
-            .add(new Tween(tweenableX, radius, xTravelDuration / 2, EaseFunctions.linear))
+            // bottom edge, going right
+            .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration / 2, EaseFunctions.linear))
 
-            // bottom left corner
+            // bottom right corner, going up
             .add(new MultiplexTween()
-                .addChannel(new Tween(tweenableX, 0, cornerDuration, EaseFunctions.sineFastSlow))
+                .addChannel(new Tween(tweenableX, totalWidth, cornerDuration, EaseFunctions.sineFastSlow))
                 .addChannel(new Tween(tweenableY, totalHeight - radius, cornerDuration, EaseFunctions.sineSlowFast)))
 
-            // left edge, going up
+            // right edge, going up
             .add(new Tween(tweenableY, radius, yTravelDuration, EaseFunctions.linear))
-
-            // top left corner
-            .add(new MultiplexTween()
-                .addChannel(new Tween(tweenableX, radius, cornerDuration, EaseFunctions.sineSlowFast))
-                .addChannel(new Tween(tweenableY, 0, cornerDuration, EaseFunctions.sineFastSlow)))
-
-            // top edge, going right
-            .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration, EaseFunctions.linear))
 
             // top right corner
             .add(new MultiplexTween()
-                .addChannel(new Tween(tweenableX, totalWidth, cornerDuration, EaseFunctions.sineFastSlow))
+                .addChannel(new Tween(tweenableX, totalWidth - radius, cornerDuration, EaseFunctions.sineSlowFast))
+                .addChannel(new Tween(tweenableY, 0, cornerDuration, EaseFunctions.sineFastSlow)))
+
+            // top edge, going left
+            .add(new Tween(tweenableX, radius, xTravelDuration, EaseFunctions.linear))
+
+            // top left corner
+            .add(new MultiplexTween()
+                .addChannel(new Tween(tweenableX, 0, cornerDuration, EaseFunctions.sineFastSlow))
                 .addChannel(new Tween(tweenableY, radius, cornerDuration, EaseFunctions.sineSlowFast)))
 
-            // right edge, going down
+            // left edge, going down
             .add(new Tween(tweenableY, totalHeight - radius, yTravelDuration, EaseFunctions.linear))
 
-            // bottom right corner
+            // bottom left corner
             .add(new MultiplexTween()
-                .addChannel(new Tween(tweenableX, totalWidth - radius, cornerDuration, EaseFunctions.sineSlowFast))
+                .addChannel(new Tween(tweenableX, radius, cornerDuration, EaseFunctions.sineSlowFast))
                 .addChannel(new Tween(tweenableY, totalHeight, cornerDuration, EaseFunctions.sineFastSlow)))
 
-            // bottom edge, going left (closing the loop)
+            // bottom edge, going right (closing the loop)
             .add(new Tween(tweenableX, startingX, xTravelDuration / 2, EaseFunctions.linear))
 
         graphics.moveTo(startingX, startingY)
