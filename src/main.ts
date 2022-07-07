@@ -91,102 +91,30 @@ function drawRoundedCircle(graphics: Graphics, radius: number, extraWidth: numbe
 
     graphics.lineStyle(lineStyle);
 
-    let top = 0
-    let left = 0
-    let totalHeight = radius * 2 + extraHeight
-    let totalWidth = radius * 2 + extraWidth
-
-    // we start here because that's the 0 position on the clock
-    let startingX = totalWidth / 2
-    let startingY = totalHeight
-
-    let tweenableX = TweenableNumber.FromConstant(startingX)
-    let tweenableY = TweenableNumber.FromConstant(startingY)
-
-
-    let halfCircumphrance = Math.PI * radius
-    let xTravelDuration = extraWidth / halfCircumphrance * 2
-    let yTravelDuration = extraHeight / halfCircumphrance * 2
-    let cornerDuration = 1
-
-    let tween = new TweenChain()
-        .add(new CallbackTween(() => {
-            tweenableX.set(startingX)
-            tweenableY.set(startingY)
-        }))
-
-        // bottom edge, going left
-        .add(new Tween(tweenableX, radius, xTravelDuration / 2, EaseFunctions.linear))
-
-        // bottom left corner
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, 0, cornerDuration, EaseFunctions.sineFastSlow))
-            .addChannel(new Tween(tweenableY, totalHeight - radius, cornerDuration, EaseFunctions.sineSlowFast)))
-
-        // left edge, going up
-        .add(new Tween(tweenableY, radius, yTravelDuration, EaseFunctions.linear))
-
-        // top left corner
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, radius, cornerDuration, EaseFunctions.sineSlowFast))
-            .addChannel(new Tween(tweenableY, 0, cornerDuration, EaseFunctions.sineFastSlow)))
-
-        // top edge, going right
-        .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration, EaseFunctions.linear))
-
-        // top right corner
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, totalWidth, cornerDuration, EaseFunctions.sineFastSlow))
-            .addChannel(new Tween(tweenableY, radius, cornerDuration, EaseFunctions.sineSlowFast)))
-
-        // right edge, going down
-        .add(new Tween(tweenableY, totalHeight - radius, yTravelDuration, EaseFunctions.linear))
-
-        // bottom right corner
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, totalWidth - radius, cornerDuration, EaseFunctions.sineSlowFast))
-            .addChannel(new Tween(tweenableY, totalHeight, cornerDuration, EaseFunctions.sineFastSlow)))
-
-        // bottom edge, going left (closing the loop)
-        .add(new Tween(tweenableX, startingX, xTravelDuration / 2, EaseFunctions.linear))
-
-    function drawLineToCurrentTweenable() {
-        graphics.lineTo(tweenableX.get(), tweenableY.get())
-    }
-
-    function drawCorner(startTimestamp: number) {
-        let cornerIncrement = 0.05
-        for (let time = startTimestamp; time < startTimestamp + cornerDuration; time += cornerIncrement) {
-            tween.jumpTo(time)
-            drawLineToCurrentTweenable()
-        }
-    }
-
-
-    graphics.moveTo(startingX, startingY)
+    let painter = new TweenDrawer(graphics, radius, extraWidth, extraHeight)
 
     // Jump around the tween and trace the line segments as we go
 
-    tween.jumpTo(xTravelDuration / 2)
-    drawLineToCurrentTweenable()
-    drawCorner(xTravelDuration / 2)
+    painter.tween.jumpTo(painter.xTravelDuration / 2)
+    painter.drawLineToCurrentTweenable()
+    painter.drawCorner(painter.xTravelDuration / 2)
 
-    tween.jumpTo(xTravelDuration / 2 + cornerDuration + yTravelDuration)
-    drawLineToCurrentTweenable()
-    drawCorner(xTravelDuration / 2 + cornerDuration + yTravelDuration)
+    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration + painter.yTravelDuration)
+    painter.drawLineToCurrentTweenable()
+    painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration + painter.yTravelDuration)
 
-    tween.jumpTo(xTravelDuration / 2 + cornerDuration * 2 + yTravelDuration + xTravelDuration)
-    drawLineToCurrentTweenable()
-    drawCorner(xTravelDuration / 2 + cornerDuration * 2 + yTravelDuration + xTravelDuration)
+    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 2 + painter.yTravelDuration + painter.xTravelDuration)
+    painter.drawLineToCurrentTweenable()
+    painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration * 2 + painter.yTravelDuration + painter.xTravelDuration)
 
-    tween.jumpTo(xTravelDuration / 2 + cornerDuration * 3 + yTravelDuration + xTravelDuration + yTravelDuration)
-    drawLineToCurrentTweenable()
-    drawCorner(xTravelDuration / 2 + cornerDuration * 3 + yTravelDuration + xTravelDuration + yTravelDuration)
+    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 3 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration)
+    painter.drawLineToCurrentTweenable()
+    painter.drawCorner(painter.xTravelDuration / 2 + painter.cornerDuration * 3 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration)
 
-    tween.jumpTo(xTravelDuration / 2 + cornerDuration * 4 + yTravelDuration + xTravelDuration + yTravelDuration + xTravelDuration / 2)
-    drawLineToCurrentTweenable()
+    painter.tween.jumpTo(painter.xTravelDuration / 2 + painter.cornerDuration * 4 + painter.yTravelDuration + painter.xTravelDuration + painter.yTravelDuration + painter.xTravelDuration / 2)
+    painter.drawLineToCurrentTweenable()
 
-    return new RandomAccessTween(tween, tweenableX, tweenableY)
+    return new RandomAccessTween(painter.tween, painter.tweenableX, painter.tweenableY)
 }
 
 export class RandomAccessTween {
@@ -223,7 +151,7 @@ export class ClockContainer extends Container {
         this.oat = new CirclePrimitive(true, 25, { color: foregroundColor })
         this.secondOat = new CirclePrimitive(true, 15, { color: foregroundColor })
         this.digitalDisplay = new Text("00:00:00", { fontSize: 100, fill: foregroundColor });
-        this.url = new Text("notexplosive.net", { fontSize: 40 });
+        this.url = new Text("notexplosive.net", { fontSize: 40, fill: foregroundColor });
         this.url.position = { x: -this.url.width / 2, y: -this.url.height / 2 }
 
         const ovalWidth = 600
@@ -258,7 +186,7 @@ export class ClockContainer extends Container {
             for (let i = 1; i <= 20; i++) {
                 let textContainer = new Container()
                 textRoot.addChild(textContainer)
-                let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: 0x222222 }))
+                let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: foregroundColor }))
                 text.position = new Point(-text.width / 2, -text.height / 2)
                 textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
             }
@@ -276,4 +204,97 @@ export class ClockContainer extends Container {
 
     }
 
+}
+
+// Abusing my tweening library to draw curves
+export class TweenDrawer {
+    readonly graphics: Graphics;
+    readonly tweenableX: TweenableNumber;
+    readonly tweenableY: TweenableNumber;
+    readonly cornerDuration: number;
+    readonly tween: TweenChain;
+    readonly xTravelDuration: number;
+    readonly yTravelDuration: number;
+
+    constructor(graphics: Graphics, radius: number, extraWidth: number, extraHeight: number) {
+        let top = 0
+        let left = 0
+        let totalHeight = radius * 2 + extraHeight
+        let totalWidth = radius * 2 + extraWidth
+
+        // we start here because that's the 0 position on the clock
+        let startingX = totalWidth / 2
+        let startingY = totalHeight
+
+        let tweenableX = TweenableNumber.FromConstant(startingX)
+        let tweenableY = TweenableNumber.FromConstant(startingY)
+
+        let halfCircumphrance = Math.PI * radius
+        let xTravelDuration = extraWidth / halfCircumphrance * 2
+        let yTravelDuration = extraHeight / halfCircumphrance * 2
+        let cornerDuration = 1
+
+        let tween = new TweenChain()
+            .add(new CallbackTween(() => {
+                tweenableX.set(startingX)
+                tweenableY.set(startingY)
+            }))
+
+            // bottom edge, going left
+            .add(new Tween(tweenableX, radius, xTravelDuration / 2, EaseFunctions.linear))
+
+            // bottom left corner
+            .add(new MultiplexTween()
+                .addChannel(new Tween(tweenableX, 0, cornerDuration, EaseFunctions.sineFastSlow))
+                .addChannel(new Tween(tweenableY, totalHeight - radius, cornerDuration, EaseFunctions.sineSlowFast)))
+
+            // left edge, going up
+            .add(new Tween(tweenableY, radius, yTravelDuration, EaseFunctions.linear))
+
+            // top left corner
+            .add(new MultiplexTween()
+                .addChannel(new Tween(tweenableX, radius, cornerDuration, EaseFunctions.sineSlowFast))
+                .addChannel(new Tween(tweenableY, 0, cornerDuration, EaseFunctions.sineFastSlow)))
+
+            // top edge, going right
+            .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration, EaseFunctions.linear))
+
+            // top right corner
+            .add(new MultiplexTween()
+                .addChannel(new Tween(tweenableX, totalWidth, cornerDuration, EaseFunctions.sineFastSlow))
+                .addChannel(new Tween(tweenableY, radius, cornerDuration, EaseFunctions.sineSlowFast)))
+
+            // right edge, going down
+            .add(new Tween(tweenableY, totalHeight - radius, yTravelDuration, EaseFunctions.linear))
+
+            // bottom right corner
+            .add(new MultiplexTween()
+                .addChannel(new Tween(tweenableX, totalWidth - radius, cornerDuration, EaseFunctions.sineSlowFast))
+                .addChannel(new Tween(tweenableY, totalHeight, cornerDuration, EaseFunctions.sineFastSlow)))
+
+            // bottom edge, going left (closing the loop)
+            .add(new Tween(tweenableX, startingX, xTravelDuration / 2, EaseFunctions.linear))
+
+        graphics.moveTo(startingX, startingY)
+
+        this.graphics = graphics
+        this.tweenableX = tweenableX
+        this.tweenableY = tweenableY
+        this.cornerDuration = cornerDuration
+        this.tween = tween
+        this.xTravelDuration = xTravelDuration
+        this.yTravelDuration = yTravelDuration
+    }
+
+    drawLineToCurrentTweenable() {
+        this.graphics.lineTo(this.tweenableX.get(), this.tweenableY.get())
+    }
+
+    drawCorner(startTimestamp: number) {
+        let cornerIncrement = 0.05
+        for (let time = startTimestamp; time < startTimestamp + this.cornerDuration; time += cornerIncrement) {
+            this.tween.jumpTo(time)
+            this.drawLineToCurrentTweenable()
+        }
+    }
 }
