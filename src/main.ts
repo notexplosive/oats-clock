@@ -1,4 +1,4 @@
-import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text, IPoint, IFillStyleOptions } from 'pixi.js';
+import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text, IPoint, IFillStyleOptions, Circle } from 'pixi.js';
 import { game } from './limbo';
 import { Tween, TweenChain, Tweenable, TweenableNumber, EaseFunction, EaseFunctions, MultiplexTween, CallbackTween, ITween } from './limbo/data/tween';
 import { CirclePrimitive } from './limbo/render/primitive';
@@ -45,11 +45,14 @@ export function main() {
 export function update(dt: number) {
     let time = new Date()
     let currentSeconds = time.getSeconds() + time.getMinutes() * 60 + time.getHours() * 60 * 60
+    let currentSecondsPrecise = time.getMilliseconds() / 1000 + time.getSeconds() + time.getMinutes() * 60 + time.getHours() * 60 * 60
     for (let clock of [topHalf, bottomHalf]) {
         clock.sun.position = clock.dayTrack.points.getValueAtPercent(currentSeconds / maxSecondsPerDay)
         const secondsInAnHour = 216 * 20
         clock.oat.position = clock.minuteTrack.points.getValueAtPercent(currentSeconds % secondsInAnHour / secondsInAnHour)
-        clock.secondOat.position = clock.minuteTrack.points.getValueAtPercent(currentSeconds % 216 / 216)
+        clock.secondOat.position = clock.minuteTrack.points.getValueAtPercent(currentSecondsPrecise % 216 / 216)
+
+        clock.sun.rotation = Math.sin(time.getTime() / 500) / 10
     }
 
     digitalDisplay.text =
@@ -66,7 +69,9 @@ export function update(dt: number) {
     digitalDisplay.position = multiplyPoint({ x: digitalDisplay.width, y: digitalDisplay.height }, -0.5)
 
     displayHolder.clear()
-    displayHolder.beginFill(0xffffff, 1)
+    displayHolder.beginFill(0xeeeeee, 1)
+    displayHolder.drawRect(-digitalDisplay.width / 2, -digitalDisplay.height / 2, digitalDisplay.width, digitalDisplay.height)
+    displayHolder.lineStyle(4, 0x333333, 1)
     displayHolder.drawRect(-digitalDisplay.width / 2, -digitalDisplay.height / 2, digitalDisplay.width, digitalDisplay.height)
 }
 
@@ -162,8 +167,23 @@ export class ClockContainer extends Container {
     constructor(foregroundColor: number, backgroundColor: number) {
         super()
         this.sun = new CirclePrimitive(true, 25, { color: foregroundColor })
-        this.oat = new CirclePrimitive(true, 25, { color: foregroundColor })
-        this.secondOat = new CirclePrimitive(true, 15, { color: foregroundColor })
+        for (let i = 0; i < Math.PI * 2; i += Math.PI / 4) {
+            let child = this.sun.addChild(new CirclePrimitive(true, 8, { color: foregroundColor }))
+            child.position = { x: Math.cos(i) * 25, y: Math.sin(i) * 25 }
+        }
+        let sunFace = this.sun.addChild(new Graphics())
+        sunFace.beginFill(backgroundColor, 1)
+        sunFace.drawCircle(-10, -10, 5)
+        sunFace.drawCircle(10, -10, 5)
+        sunFace.endFill()
+
+        sunFace.lineStyle({ width: 3, alpha: 1, color: backgroundColor })
+        sunFace.moveTo(-10, 5)
+        sunFace.lineTo(0, 10)
+        sunFace.lineTo(10, 5)
+
+        this.oat = new CirclePrimitive(true, 15, { color: foregroundColor })
+        this.secondOat = new CirclePrimitive(true, 10, { color: foregroundColor })
         this.url = new Text("notexplosive.net", { fontSize: 40, fill: foregroundColor });
         this.url.position = { x: -this.url.width / 2, y: -this.url.height / 2 }
 
@@ -196,10 +216,10 @@ export class ClockContainer extends Container {
             this.addChild(textRoot)
             textRoot.position = multiplyPoint(numbersTrack.size, -0.5)
 
-            for (let i = 1; i <= 20; i++) {
+            for (let i = 0; i < 20; i++) {
                 let textContainer = new Container()
                 textRoot.addChild(textContainer)
-                let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: foregroundColor }))
+                let text = textContainer.addChild(new Text(i + 1, { fontFamily: "Roboto", fontSize: 50, fill: foregroundColor }))
                 text.position = new Point(-text.width / 2, -text.height / 2)
                 textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
             }
