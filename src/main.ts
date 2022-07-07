@@ -2,7 +2,7 @@ import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text } from 
 import { game } from './limbo';
 import { Tween, TweenChain, Tweenable, TweenableNumber, EaseFunction, EaseFunctions, MultiplexTween, CallbackTween } from './limbo/data/tween';
 import { CirclePrimitive } from './limbo/render/primitive';
-import { pointMagnitude, subtractPoints, addPoints } from './limbo/functions/point-math';
+import { pointMagnitude, subtractPoints, addPoints, multiplyPoint } from './limbo/functions/point-math';
 
 
 const maxSecondsPerDay = 86400
@@ -26,7 +26,7 @@ export function main() {
     dayTrack = createOval(800 - 150, 0, 450 - 150, 0.8, 5)
     clock.addChild(dayTrack.graphics)
 
-    let numbersTrack = createOval(800 - 50, 0, 450 - 50, 0.8, 5)
+    let numbersTrack = createOval(800 - 25, 0, 450 - 25, 0.8, 5)
 
     let bg = new Graphics()
     bg.beginFill(0xcccccc);
@@ -37,6 +37,7 @@ export function main() {
 
     dayTrack.graphics.addChild(sun)
     minuteTrack.graphics.addChild(oat)
+    let textHolder = new Container()
 
     for (let i = 1; i <= 20; i++) {
         let text = new Text(20 - i, { fontFamily: "Roboto", fontSize: 50, fill: 0xff00ff })
@@ -44,9 +45,12 @@ export function main() {
         if (i == 20) {
             p = numbersTrack.points.length - 1
         }
-        text.position = numbersTrack.points[p]
-        border.graphics.addChild(text)
+        text.position = subtractPoints(numbersTrack.points[p], multiplyPoint(new Point(text.width, text.height), 1))
+        textHolder.addChild(text)
     }
+
+    // textHolder.position = new Point(-600, -325)
+    clock.addChild(textHolder)
 
     clock.addChild(digitalDisplay)
     clock.addChild(url)
@@ -97,12 +101,18 @@ function drawRoundedCircle(graphics: Graphics, radius: number, extraWidth: numbe
 
     graphics.lineStyle(lineStyle);
 
-
-    let tweenableX = TweenableNumber.FromConstant(0)
-    let tweenableY = TweenableNumber.FromConstant(radius)
-
-    let totalWidth = radius * 2 + extraWidth
+    let top = 0
+    let left = 0
     let totalHeight = radius * 2 + extraHeight
+    let totalWidth = radius * 2 + extraWidth
+
+    // we start here because that's the 0 position on the clock
+    let startingX = totalWidth / 2
+    let startingY = totalHeight
+
+    let tweenableX = TweenableNumber.FromConstant(startingX)
+    let tweenableY = TweenableNumber.FromConstant(startingY)
+
 
     let halfCircumphrance = Math.PI * radius
     let xTravelDuration = extraWidth / halfCircumphrance * 2
@@ -110,30 +120,40 @@ function drawRoundedCircle(graphics: Graphics, radius: number, extraWidth: numbe
 
 
     let tween = new TweenChain()
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, radius, 1, EaseFunctions.sineSlowFast))
-            .addChannel(new Tween(tweenableY, 0, 1, EaseFunctions.sineFastSlow)))
-
-        .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration, EaseFunctions.linear))
-
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, totalWidth, 1, EaseFunctions.sineFastSlow))
-            .addChannel(new Tween(tweenableY, radius, 1, EaseFunctions.sineSlowFast)))
-
-        .add(new Tween(tweenableY, totalHeight - radius, yTravelDuration, EaseFunctions.linear))
-
-        .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, totalWidth - radius, 1, EaseFunctions.sineSlowFast))
-            .addChannel(new Tween(tweenableY, totalHeight, 1, EaseFunctions.sineFastSlow)))
-
+        // bottom edge, going left
         .add(new Tween(tweenableX, radius, xTravelDuration, EaseFunctions.linear))
 
+        // bottom left corner
         .add(new MultiplexTween()
             .addChannel(new Tween(tweenableX, 0, 1, EaseFunctions.sineFastSlow))
             .addChannel(new Tween(tweenableY, totalHeight - radius, 1, EaseFunctions.sineSlowFast)))
 
+        // left edge, going up
         .add(new Tween(tweenableY, radius, yTravelDuration, EaseFunctions.linear))
-    //.add()
+
+        // top left corner
+        .add(new MultiplexTween()
+            .addChannel(new Tween(tweenableX, radius, 1, EaseFunctions.sineSlowFast))
+            .addChannel(new Tween(tweenableY, 0, 1, EaseFunctions.sineFastSlow)))
+
+        // top edge, going right
+        .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration, EaseFunctions.linear))
+
+        // top right corner
+        .add(new MultiplexTween()
+            .addChannel(new Tween(tweenableX, totalWidth, 1, EaseFunctions.sineFastSlow))
+            .addChannel(new Tween(tweenableY, radius, 1, EaseFunctions.sineSlowFast)))
+
+        // right edge, going down
+        .add(new Tween(tweenableY, totalHeight - radius, yTravelDuration, EaseFunctions.linear))
+
+        // bottom right corner
+        .add(new MultiplexTween()
+            .addChannel(new Tween(tweenableX, totalWidth - radius, 1, EaseFunctions.sineSlowFast))
+            .addChannel(new Tween(tweenableY, totalHeight, 1, EaseFunctions.sineFastSlow)))
+
+        // bottom edge, going left (closing the loop)
+        .add(new Tween(tweenableX, startingX, xTravelDuration, EaseFunctions.linear))
 
     let increment = 1 / maxSecondsPerDay;
 
