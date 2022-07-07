@@ -8,27 +8,32 @@ import { pointMagnitude, subtractPoints, addPoints, multiplyPoint } from './limb
 const maxSecondsPerDay = 86400
 let sun = new CirclePrimitive(true, 25, { color: 0xffff00 })
 let oat = new CirclePrimitive(true, 25, { color: 0x00ffaa })
+let secondOat = new CirclePrimitive(true, 15, { color: 0xaaffaa })
 let dayTrack: Track;
 let minuteTrack: Track;
 let digitalDisplay: Text = new Text("00:00:00", { fontSize: 100 });
-let url: Text = new Text("notexplosive.net", { fontSize: 50 });
+let url: Text = new Text("notexplosive.net", { fontSize: 40 });
+url.position = { x: -url.width / 2, y: -url.height / 2 }
 
 export function main() {
     let clock = new Container()
     clock.position = new Point(1600 / 2, 900 / 2)
 
-    let border = createOval(800, 0, 450, 0.8, 20)
+    const ovalWidth = 600
+    const ovalHeight = 450
+    let border = createOval(ovalWidth, 0, ovalHeight, 0.8, 20)
     clock.addChild(border.graphics)
 
-    let minuteTrackInset = 75
-    minuteTrack = createOval(800 - minuteTrackInset, 0, 450 - minuteTrackInset, 0.8, 5)
+    const minuteTrackInset = 100
+    minuteTrack = createOval(ovalWidth - minuteTrackInset, 0, ovalHeight - minuteTrackInset, 0.8, 5)
     clock.addChild(minuteTrack.graphics)
 
-    let dayTrackInset = 150
-    dayTrack = createOval(800 - dayTrackInset, 0, 450 - dayTrackInset, 0.8, 5)
+    const dayTrackInset = 200
+    dayTrack = createOval(ovalWidth - dayTrackInset, 0, ovalHeight - dayTrackInset, 0.8, 5)
     clock.addChild(dayTrack.graphics)
 
-    let numbersTrack = createOval(800 - 0, 0, 450 - 50, 0.8, 5)
+    const numbersInset = 50
+    let numbersTrack = createOval(ovalWidth - numbersInset, 0, ovalHeight - numbersInset, 0.8, 5)
 
     let bg = new Graphics()
     bg.beginFill(0xcccccc);
@@ -39,22 +44,31 @@ export function main() {
 
     dayTrack.graphics.addChild(sun)
     minuteTrack.graphics.addChild(oat)
-    let textRoot = new Container()
-    textRoot.position = multiplyPoint(numbersTrack.size, -0.5)
+    minuteTrack.graphics.addChild(secondOat)
 
-    for (let i = 1; i <= 20; i++) {
-        let textContainer = new Container()
-        textRoot.addChild(textContainer)
-        let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: 0xff00ff }))
-        text.position = new Point(-text.width / 2, -text.height / 2)
-        textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
+
+    // numbered labels
+    {
+        let textRoot = new Container()
+        clock.addChild(textRoot)
+        textRoot.position = multiplyPoint(numbersTrack.size, -0.5)
+
+        for (let i = 1; i <= 20; i++) {
+            let textContainer = new Container()
+            textRoot.addChild(textContainer)
+            let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: 0x222222 }))
+            text.position = new Point(-text.width / 2, -text.height / 2)
+            textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
+        }
     }
 
-    // textHolder.position = new Point(-600, -325)
-    clock.addChild(textRoot)
-
     clock.addChild(digitalDisplay)
-    clock.addChild(url)
+
+    let urlParent = new Container()
+    urlParent.addChild(url)
+    clock.addChild(urlParent)
+
+    urlParent.position.y = 110
 }
 
 // 20 hours in a day
@@ -63,13 +77,24 @@ export function main() {
 
 export function update(dt: number) {
     let time = new Date()
-    let totalSecondsInDay = time.getSeconds() + time.getMinutes() * 60 + time.getHours() * 60 * 60
-    // sun.position = dayTrack.points[dayTrack.points.length - Math.floor(totalSecondsInDay) % dayTrack.points.length - 1]
-    // let p = Math.floor((minuteTrack.points.length - (Math.floor((totalSecondsInDay % 216) / 216 * minuteTrack.points.length)) - 1) / 20)
+    let currentSeconds = time.getSeconds() + time.getMinutes() * 60 + time.getHours() * 60 * 60
+    sun.position = dayTrack.points.getValueAtPercent(currentSeconds / maxSecondsPerDay)
+    const secondsInAnHour = 216 * 20
+    oat.position = minuteTrack.points.getValueAtPercent(currentSeconds % secondsInAnHour / secondsInAnHour)
+    secondOat.position = minuteTrack.points.getValueAtPercent(currentSeconds % 216 / 216)
 
-    // oat.position = minuteTrack.points[p]
-
-    digitalDisplay.text = `${Math.floor(totalSecondsInDay / 20 / 216)}:${Math.floor(totalSecondsInDay / 216 % 20)}:${totalSecondsInDay % 216}`
+    digitalDisplay.text =
+        `${Math.floor(currentSeconds / 20 / 216)
+        }:${Math.floor(currentSeconds / 216 % 20).toLocaleString('en-US', {
+            minimumIntegerDigits: 2,
+            useGrouping: false
+        })
+        }:${(currentSeconds % 216).toLocaleString('en-US', {
+            minimumIntegerDigits: 3,
+            useGrouping: false
+        })
+        }`
+    digitalDisplay.position = multiplyPoint({ x: digitalDisplay.width, y: digitalDisplay.height }, -0.5)
 }
 
 function createOval(addedWidth: number, addedHeight: number, radius: number, scale: number, lineWidth: number) {
