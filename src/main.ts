@@ -1,6 +1,6 @@
-import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text } from 'pixi.js';
+import { Graphics, Container, Point, ILineStyleOptions, IPointData, Text, IPoint } from 'pixi.js';
 import { game } from './limbo';
-import { Tween, TweenChain, Tweenable, TweenableNumber, EaseFunction, EaseFunctions, MultiplexTween, CallbackTween } from './limbo/data/tween';
+import { Tween, TweenChain, Tweenable, TweenableNumber, EaseFunction, EaseFunctions, MultiplexTween, CallbackTween, ITween } from './limbo/data/tween';
 import { CirclePrimitive } from './limbo/render/primitive';
 import { pointMagnitude, subtractPoints, addPoints, multiplyPoint } from './limbo/functions/point-math';
 
@@ -20,13 +20,15 @@ export function main() {
     let border = createOval(800, 0, 450, 0.8, 20)
     clock.addChild(border.graphics)
 
-    minuteTrack = createOval(800 - 75, 0, 450 - 75, 0.8, 5)
+    let minuteTrackInset = 75
+    minuteTrack = createOval(800 - minuteTrackInset, 0, 450 - minuteTrackInset, 0.8, 5)
     clock.addChild(minuteTrack.graphics)
 
-    dayTrack = createOval(800 - 150, 0, 450 - 150, 0.8, 5)
+    let dayTrackInset = 150
+    dayTrack = createOval(800 - dayTrackInset, 0, 450 - dayTrackInset, 0.8, 5)
     clock.addChild(dayTrack.graphics)
 
-    let numbersTrack = createOval(800 - 25, 0, 450 - 25, 0.8, 5)
+    let numbersTrack = createOval(800 - 0, 0, 450 - 50, 0.8, 5)
 
     let bg = new Graphics()
     bg.beginFill(0xcccccc);
@@ -37,20 +39,19 @@ export function main() {
 
     dayTrack.graphics.addChild(sun)
     minuteTrack.graphics.addChild(oat)
-    let textHolder = new Container()
+    let textRoot = new Container()
+    textRoot.position = multiplyPoint(numbersTrack.size, -0.5)
 
     for (let i = 1; i <= 20; i++) {
-        let text = new Text(20 - i, { fontFamily: "Roboto", fontSize: 50, fill: 0xff00ff })
-        let p = Math.floor(i * numbersTrack.points.length / 20)
-        if (i == 20) {
-            p = numbersTrack.points.length - 1
-        }
-        text.position = subtractPoints(numbersTrack.points[p], multiplyPoint(new Point(text.width, text.height), 1))
-        textHolder.addChild(text)
+        let textContainer = new Container()
+        textRoot.addChild(textContainer)
+        let text = textContainer.addChild(new Text(i, { fontFamily: "Roboto", fontSize: 50, fill: 0xff00ff }))
+        text.position = new Point(-text.width / 2, -text.height / 2)
+        textContainer.position = numbersTrack.points.getValueAtPercent(i / 20)
     }
 
     // textHolder.position = new Point(-600, -325)
-    clock.addChild(textHolder)
+    clock.addChild(textRoot)
 
     clock.addChild(digitalDisplay)
     clock.addChild(url)
@@ -60,14 +61,13 @@ export function main() {
 // 20 minutes per hour
 // 216 seconds per minute
 
-
 export function update(dt: number) {
     let time = new Date()
     let totalSecondsInDay = time.getSeconds() + time.getMinutes() * 60 + time.getHours() * 60 * 60
-    sun.position = dayTrack.points[dayTrack.points.length - Math.floor(totalSecondsInDay) % dayTrack.points.length - 1]
-    let p = Math.floor((minuteTrack.points.length - (Math.floor((totalSecondsInDay % 216) / 216 * minuteTrack.points.length)) - 1) / 20)
+    // sun.position = dayTrack.points[dayTrack.points.length - Math.floor(totalSecondsInDay) % dayTrack.points.length - 1]
+    // let p = Math.floor((minuteTrack.points.length - (Math.floor((totalSecondsInDay % 216) / 216 * minuteTrack.points.length)) - 1) / 20)
 
-    oat.position = minuteTrack.points[p]
+    // oat.position = minuteTrack.points[p]
 
     digitalDisplay.text = `${Math.floor(totalSecondsInDay / 20 / 216)}:${Math.floor(totalSecondsInDay / 216 % 20)}:${totalSecondsInDay % 216}`
 }
@@ -83,17 +83,19 @@ function createOval(addedWidth: number, addedHeight: number, radius: number, sca
     let totalWidth = addedWidth + radius * 2
     let totalHeight = addedHeight + radius * 2
     outlineGraphics.position = new Point(-totalWidth / 2, -totalHeight / 2)
-    let trackPoints = drawRoundedCircle(outlineGraphics, radius, addedWidth, addedHeight, { color: 0x333333, width: lineWidth, alpha: 1 })
+    let randomAccessTween = drawRoundedCircle(outlineGraphics, radius, addedWidth, addedHeight, { color: 0x333333, width: lineWidth, alpha: 1 })
 
-    return new Track(outlineGraphics, trackPoints)
+    return new Track(outlineGraphics, randomAccessTween, { x: totalWidth, y: totalHeight })
 }
 
 export class Track {
     readonly graphics: Graphics;
-    readonly points: IPointData[];
-    constructor(graphics: Graphics, trackPoints: IPointData[]) {
+    readonly points: RandomAccessTween;
+    readonly size: IPointData;
+    constructor(graphics: Graphics, trackPoints: RandomAccessTween, size: IPointData) {
         this.graphics = graphics
         this.points = trackPoints
+        this.size = size
     }
 }
 
@@ -117,52 +119,103 @@ function drawRoundedCircle(graphics: Graphics, radius: number, extraWidth: numbe
     let halfCircumphrance = Math.PI * radius
     let xTravelDuration = extraWidth / halfCircumphrance * 2
     let yTravelDuration = extraHeight / halfCircumphrance * 2
-
+    let cornerDuration = 1
 
     let tween = new TweenChain()
+        .add(new CallbackTween(() => {
+            tweenableX.set(startingX)
+            tweenableY.set(startingY)
+        }))
+
         // bottom edge, going left
-        .add(new Tween(tweenableX, radius, xTravelDuration, EaseFunctions.linear))
+        .add(new Tween(tweenableX, radius, xTravelDuration / 2, EaseFunctions.linear))
 
         // bottom left corner
         .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, 0, 1, EaseFunctions.sineFastSlow))
-            .addChannel(new Tween(tweenableY, totalHeight - radius, 1, EaseFunctions.sineSlowFast)))
+            .addChannel(new Tween(tweenableX, 0, cornerDuration, EaseFunctions.sineFastSlow))
+            .addChannel(new Tween(tweenableY, totalHeight - radius, cornerDuration, EaseFunctions.sineSlowFast)))
 
         // left edge, going up
         .add(new Tween(tweenableY, radius, yTravelDuration, EaseFunctions.linear))
 
         // top left corner
         .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, radius, 1, EaseFunctions.sineSlowFast))
-            .addChannel(new Tween(tweenableY, 0, 1, EaseFunctions.sineFastSlow)))
+            .addChannel(new Tween(tweenableX, radius, cornerDuration, EaseFunctions.sineSlowFast))
+            .addChannel(new Tween(tweenableY, 0, cornerDuration, EaseFunctions.sineFastSlow)))
 
         // top edge, going right
         .add(new Tween(tweenableX, totalWidth - radius, xTravelDuration, EaseFunctions.linear))
 
         // top right corner
         .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, totalWidth, 1, EaseFunctions.sineFastSlow))
-            .addChannel(new Tween(tweenableY, radius, 1, EaseFunctions.sineSlowFast)))
+            .addChannel(new Tween(tweenableX, totalWidth, cornerDuration, EaseFunctions.sineFastSlow))
+            .addChannel(new Tween(tweenableY, radius, cornerDuration, EaseFunctions.sineSlowFast)))
 
         // right edge, going down
         .add(new Tween(tweenableY, totalHeight - radius, yTravelDuration, EaseFunctions.linear))
 
         // bottom right corner
         .add(new MultiplexTween()
-            .addChannel(new Tween(tweenableX, totalWidth - radius, 1, EaseFunctions.sineSlowFast))
-            .addChannel(new Tween(tweenableY, totalHeight, 1, EaseFunctions.sineFastSlow)))
+            .addChannel(new Tween(tweenableX, totalWidth - radius, cornerDuration, EaseFunctions.sineSlowFast))
+            .addChannel(new Tween(tweenableY, totalHeight, cornerDuration, EaseFunctions.sineFastSlow)))
 
         // bottom edge, going left (closing the loop)
-        .add(new Tween(tweenableX, startingX, xTravelDuration, EaseFunctions.linear))
+        .add(new Tween(tweenableX, startingX, xTravelDuration / 2, EaseFunctions.linear))
 
-    let increment = 1 / maxSecondsPerDay;
-
-    let track = []
-    graphics.moveTo(tweenableX.get(), tweenableY.get())
-    while (!tween.isDone()) {
-        tween.update(increment)
+    function drawLineToCurrentTweenable() {
         graphics.lineTo(tweenableX.get(), tweenableY.get())
-        track.push({ x: tweenableX.get(), y: tweenableY.get() })
     }
-    return track
+
+    function drawCorner(startTimestamp: number) {
+        let cornerIncrement = 0.05
+        for (let time = startTimestamp; time < startTimestamp + cornerDuration; time += cornerIncrement) {
+            tween.jumpTo(time)
+            drawLineToCurrentTweenable()
+        }
+    }
+
+
+    graphics.moveTo(startingX, startingY)
+
+    // Jump around the tween and trace the line segments as we go
+
+    tween.jumpTo(xTravelDuration / 2)
+    drawLineToCurrentTweenable()
+    drawCorner(xTravelDuration / 2)
+
+    tween.jumpTo(xTravelDuration / 2 + cornerDuration + yTravelDuration)
+    drawLineToCurrentTweenable()
+    drawCorner(xTravelDuration / 2 + cornerDuration + yTravelDuration)
+
+    tween.jumpTo(xTravelDuration / 2 + cornerDuration * 2 + yTravelDuration + xTravelDuration)
+    drawLineToCurrentTweenable()
+    drawCorner(xTravelDuration / 2 + cornerDuration * 2 + yTravelDuration + xTravelDuration)
+
+    tween.jumpTo(xTravelDuration / 2 + cornerDuration * 3 + yTravelDuration + xTravelDuration + yTravelDuration)
+    drawLineToCurrentTweenable()
+    drawCorner(xTravelDuration / 2 + cornerDuration * 3 + yTravelDuration + xTravelDuration + yTravelDuration)
+
+    tween.jumpTo(xTravelDuration / 2 + cornerDuration * 4 + yTravelDuration + xTravelDuration + yTravelDuration + xTravelDuration / 2)
+    drawLineToCurrentTweenable()
+
+    return new RandomAccessTween(tween, tweenableX, tweenableY)
+}
+
+export class RandomAccessTween {
+    readonly x: TweenableNumber;
+    readonly y: TweenableNumber;
+    readonly tween: ITween;
+
+    constructor(tween: ITween, x: TweenableNumber, y: TweenableNumber) {
+        this.tween = tween
+        this.x = x;
+        this.y = y;
+    }
+
+    getValueAtPercent(percent: number) {
+        let targetTime = this.tween.getDuration() * percent
+        this.tween.jumpTo(targetTime)
+
+        return { x: this.x.get(), y: this.y.get() }
+    }
 }
